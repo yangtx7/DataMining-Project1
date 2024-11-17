@@ -225,7 +225,7 @@ def em_cluster(train_data_pca, test_data_pca, n_components=6):
     print(f"Adjusted Rand Index (ARI): {ari:.3f}")
 
 def kmeans_cluster(train_data_pca, test_data_pca):
-
+ 
     # 聚类部分（使用K-means）
     kmeans = KMeans(n_clusters=6, random_state=42, n_init=10, init='random')
     train_clusters = kmeans.fit_predict(train_data_pca)
