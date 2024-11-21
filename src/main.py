@@ -14,6 +14,7 @@ from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
 from sklearn.metrics import silhouette_score, accuracy_score, adjusted_rand_score, confusion_matrix, pairwise_distances
 from scipy.stats import mode
 from sklearn.neighbors import NearestNeighbors
+from sklearn.pipeline import Pipeline
 from sympy import true
 from clarans import CLARANS
 
@@ -108,23 +109,14 @@ def read_data():
     return train_data, test_data, features
 
 def preprocess(train_data, test_data, features):
-
-    # 标准化
-    scaler = StandardScaler()
-    train_data[features] = scaler.fit_transform(train_data[features])
-    test_data[features] = scaler.transform(test_data[features])
-
-    # 特征选择
-    selector = VarianceThreshold(threshold=0.1)
-    train_data_selected = selector.fit_transform(train_data[features])
-    test_data_selected = selector.transform(test_data[features])
-
-    # PCA降维
-    pca = PCA(n_components=50)
-    train_data_pca = pca.fit_transform(train_data_selected)
-    test_data_pca = pca.transform(test_data_selected)
-
-    return train_data_pca, test_data_pca
+    pp = Pipeline([
+        ('scaler', StandardScaler()),
+        ('selector', VarianceThreshold(threshold=0)),
+        ('pca', PCA(n_components=.8))
+    ])
+    X_train = pp.fit_transform(train_data[features])
+    X_test = pp.fit_transform(test_data[features])
+    return X_train, X_test
 
 def dbscan_cluster(train_data_pca, test_data_pca, eps=12.7, min_samples=10):
     # 聚类部分（使用DBSCAN）
@@ -467,13 +459,73 @@ def agglomerative_cluster(train_data_pca, test_data_pca):
     ari = adjusted_rand_score(true_labels_test, pred_labels_test)
     print(f"Adjusted Rand Index (ARI): {ari:.3f}")
 
+def divisive_cluster(train_data_pca, test_data_pca):
+    def divisive_clustering(X, n_clusters):
+        # 初始时所有点属于同一个簇
+        clusters = [X]
+        labels = np.zeros(len(X), dtype=int)
+        current_label = 1
+
+        while len(clusters) < n_clusters:
+            # 找到最大簇进行分裂
+            largest_cluster_idx = np.argmax([len(cluster) for cluster in clusters])
+            largest_cluster = clusters.pop(largest_cluster_idx)
+
+            # 使用 K-Means 将该簇分裂为 2 个子簇
+            kmeans = KMeans(n_clusters=2, random_state=42).fit(largest_cluster)
+            sub_labels = kmeans.labels_
+
+            # 更新簇和标签
+            for i in range(2):
+                clusters.append(largest_cluster[sub_labels == i])
+                labels[np.isin(X, largest_cluster[sub_labels == i]).all(axis=1)] = current_label
+                current_label += 1
+
+        return labels
+    pred_labels_train = divisive_clustering(train_data_pca, n_clusters=6)
+    # 可视化聚类结果
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(x=train_data_pca[:, 0], y=train_data_pca[:, 1], hue=pred_labels_train, size=3, palette="Set1", s=60)
+    plt.title("Divisive Clustering of UCI HAR Dataset (Train)")
+    plt.xlabel("Principal Component 1")
+    plt.ylabel("Principal Component 2")
+    plt.legend(title='Cluster')
+    plt.savefig("result/div_fit_train.pdf")
+
+    # 计算聚类效果评估指标（如轮廓系数）
+    silhouette_avg = silhouette_score(train_data_pca, pred_labels_train)
+    print(f"Silhouette Score: {silhouette_avg:.3f}")
+
+    # 聚类紧凑度和分离度
+    compact, separate = compute_compactness_separation(train_data_pca, pred_labels_train)
+    print(f"Compactness: {compact:.3f}")
+    print(f"Separation: {separate:.3f}")
+
+    pred_labels_test = divisive_clustering(test_data_pca, 6)
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(x=test_data_pca[:, 0], y=test_data_pca[:, 1], hue=pred_labels_test, size=3, palette="Set1", s=60)
+    plt.title("Divisive Clustering of UCI HAR Dataset (Test)")
+    plt.xlabel("Principal Component 1")
+    plt.ylabel("Principal Component 2")
+    plt.legend(title='Cluster')
+    plt.savefig("result/div_fit_test.pdf")
+
+    le = LabelEncoder()
+    true_labels_test = le.fit_transform(test_data['activity'])
+    pred_labels_test = le.fit_transform(pred_labels_test)
+    accuracy = cluster_accuracy(true_labels_test, pred_labels_test)
+    print(f"Classification Accuracy: {accuracy:.3f}")
+    ari = adjusted_rand_score(true_labels_test, pred_labels_test)
+    print(f"Adjusted Rand Index (ARI): {ari:.3f}")
+
 if __name__ == "__main__":
     train_data, test_data, features = read_data()
     train_data_pca, test_data_pca = preprocess(train_data, test_data, features)
     # plot_k_distance(train_data_pca, k=5)
-    kmeans_cluster(train_data_pca, test_data_pca)
+    # kmeans_cluster(train_data_pca, test_data_pca)
     # dbscan_cluster(train_data_pca, test_data_pca)
     # em_cluster(train_data_pca, test_data_pca)
     # clarans_cluster(train_data_pca, test_data_pca)
     # denclue_cluster(train_data_pca, test_data_pca)
-    # agglomerative_cluster(train_data_pca, test_data_pca)
+    agglomerative_cluster(train_data_pca, test_data_pca)
+    # divisive_cluster(train_data_pca, test_data_pca)
