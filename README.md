@@ -3,7 +3,7 @@ This is a course project of Data Mining (2024, fall) in THU.
 # Objective
 Implementing clustering on the human activity dataset.
 # Data
-6 kinds of activity with 561 features
+6 kinds of activities with 561 features
 https://archive.ics.uci.edu/dataset/240/human+activity+recognition+using+smartphones
 # Content
 ## data analysis and preprocessing
