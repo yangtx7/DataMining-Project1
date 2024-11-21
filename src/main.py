@@ -11,13 +11,42 @@ from scipy.stats import skew, kurtosis
 from scipy.optimize import linear_sum_assignment
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
-from sklearn.metrics import silhouette_score, accuracy_score, adjusted_rand_score, confusion_matrix
+from sklearn.metrics import silhouette_score, accuracy_score, adjusted_rand_score, confusion_matrix, pairwise_distances
 from scipy.stats import mode
 from sklearn.neighbors import NearestNeighbors
+from sympy import true
 from clarans import CLARANS
 
 np.random.seed(42)
 dataset_path = './data'
+
+def cluster_accuracy(true_labels, labels):
+    conf_matrix = confusion_matrix(true_labels, labels)
+    row_ind, col_ind = linear_sum_assignment(-conf_matrix)
+    mapping = dict(zip(col_ind, row_ind))
+    mapped_labels = np.array([mapping[label] for label in labels])
+    accuracy = accuracy_score(true_labels, mapped_labels)
+    return accuracy
+
+def compute_compactness_separation(X, labels):
+    # 紧密度(簇内平方和)
+    unique_labels = np.unique(labels)
+    compactness = 0.0
+    centers = []
+    for label in unique_labels:
+        cluster_points = X[labels == label]
+        cluster_center = cluster_points.mean(axis=0)  # 计算质心
+        centers.append(cluster_center)
+        compactness += np.sum((cluster_points - cluster_center) ** 2)  # 簇内距离总和
+    
+    n_clusters = len(unique_labels)
+    sep = 0
+    for i in range(n_clusters):
+        for j in range(i + 1, n_clusters):
+            sep += np.linalg.norm(centers[i] - centers[j])
+    separation = sep / (n_clusters * (n_clusters - 1) / 2)
+    return compactness, separation
+
 
 def compactness(X, labels, centers):
     return np.sum([np.sum((X[labels == i] - centers[i])**2) for i in range(len(centers))])
@@ -249,10 +278,8 @@ def kmeans_cluster(train_data_pca, test_data_pca):
     kmeans.fit(train_data_pca)
     labels = kmeans.labels_
     centers = kmeans.cluster_centers_
-
     compact = compactness(train_data_pca, labels, centers)
     separate = separation(centers)
-
     print(f"Compactness: {compact:.3f}")
     print(f"Separation: {separate:.3f}")
 
@@ -269,16 +296,17 @@ def kmeans_cluster(train_data_pca, test_data_pca):
     le = LabelEncoder()
     true_labels = le.fit_transform(test_data['activity'])
 
-    cluster_labels = np.zeros_like(test_clusters)
-    for i in range(kmeans.n_clusters):
-        # 获取该簇内样本的真实标签
-        mask = (test_clusters == i)
-        most_common_label = mode(true_labels[mask])[0]
-        cluster_labels[test_clusters == i] = most_common_label
+    # cluster_labels = np.zeros_like(test_clusters)
+    # for i in range(kmeans.n_clusters):
+    #     # 获取该簇内样本的真实标签
+    #     mask = (test_clusters == i)
+    #     most_common_label = mode(true_labels[mask])[0]
+    #     cluster_labels[test_clusters == i] = most_common_label
 
-    accuracy = accuracy_score(true_labels, cluster_labels)
+    # accuracy = accuracy_score(true_labels, cluster_labels)
+    accuracy = cluster_accuracy(true_labels, test_clusters)
     print(f"Classification Accuracy: {accuracy:.3f}")
-    ari = adjusted_rand_score(true_labels, cluster_labels)
+    ari = adjusted_rand_score(true_labels, test_clusters)
     print(f"Adjusted Rand Index (ARI): {ari:.3f}")
 
 def clarans_cluster(train_data_pca, test_data_pca, max_neighbors=5, max_swap=5, n_clusters=6):
@@ -400,13 +428,13 @@ def denclue_cluster(train_data_pca, test_data_pca, bandwidth=10):
 
 def agglomerative_cluster(train_data_pca, test_data_pca):
  
-    # 聚类部分（使用K-means）
+    # 聚类部分
     agg = AgglomerativeClustering(n_clusters=6, linkage='ward')
-    train_clusters = agg.fit_predict(train_data_pca)
+    pred_labels_train = agg.fit_predict(train_data_pca)
 
     # 可视化聚类结果
     plt.figure(figsize=(10, 6))
-    sns.scatterplot(x=train_data_pca[:, 0], y=train_data_pca[:, 1], hue=train_clusters, size=3, palette="Set1", s=60)
+    sns.scatterplot(x=train_data_pca[:, 0], y=train_data_pca[:, 1], hue=pred_labels_train, size=3, palette="Set1", s=60)
     plt.title("Agglomerative Clustering of UCI HAR Dataset (Train)")
     plt.xlabel("Principal Component 1")
     plt.ylabel("Principal Component 2")
@@ -414,24 +442,17 @@ def agglomerative_cluster(train_data_pca, test_data_pca):
     plt.savefig("result/agg_fit_train.pdf")
 
     # 计算聚类效果评估指标（如轮廓系数）
-    silhouette_avg = silhouette_score(train_data_pca, train_clusters)
+    silhouette_avg = silhouette_score(train_data_pca, pred_labels_train)
     print(f"Silhouette Score: {silhouette_avg:.3f}")
 
-    # # 聚类紧凑度和分离度
-    # kmeans = AgglomerativeClustering(n_clusters=6, linkage='ward')
-    # kmeans.fit(train_data_pca)
-    # labels = kmeans.labels_
-    # centers = kmeans.cluster_centers_
+    # 聚类紧凑度和分离度
+    compact, separate = compute_compactness_separation(train_data_pca, pred_labels_train)
+    print(f"Compactness: {compact:.3f}")
+    print(f"Separation: {separate:.3f}")
 
-    # compact = compactness(train_data_pca, labels, centers)
-    # separate = separation(centers)
-
-    # print(f"Compactness: {compact:.3f}")
-    # print(f"Separation: {separate:.3f}")
-
-    test_clusters = agg.fit_predict(test_data_pca)
+    pred_labels_test = agg.fit_predict(test_data_pca)
     plt.figure(figsize=(10, 6))
-    sns.scatterplot(x=test_data_pca[:, 0], y=test_data_pca[:, 1], hue=test_clusters, size=3, palette="Set1", s=60)
+    sns.scatterplot(x=test_data_pca[:, 0], y=test_data_pca[:, 1], hue=pred_labels_test, size=3, palette="Set1", s=60)
     plt.title("Agglomerative Clustering of UCI HAR Dataset (Test)")
     plt.xlabel("Principal Component 1")
     plt.ylabel("Principal Component 2")
@@ -440,23 +461,19 @@ def agglomerative_cluster(train_data_pca, test_data_pca):
 
 
     le = LabelEncoder()
-    true_labels = le.fit_transform(test_data['activity'])
-    conf_matrix = confusion_matrix(true_labels, test_clusters)
-    row_ind, col_ind = linear_sum_assignment(-conf_matrix)
-    mapping = dict(zip(col_ind, row_ind))
-    mapped_labels = np.array([mapping[label] for label in test_clusters])
-    accuracy = accuracy_score(true_labels, mapped_labels)
+    true_labels_test = le.fit_transform(test_data['activity'])
+    accuracy = cluster_accuracy(true_labels_test, pred_labels_test)
     print(f"Classification Accuracy: {accuracy:.3f}")
-    ari = adjusted_rand_score(true_labels, test_clusters)
+    ari = adjusted_rand_score(true_labels_test, pred_labels_test)
     print(f"Adjusted Rand Index (ARI): {ari:.3f}")
 
 if __name__ == "__main__":
     train_data, test_data, features = read_data()
     train_data_pca, test_data_pca = preprocess(train_data, test_data, features)
     # plot_k_distance(train_data_pca, k=5)
-    # kmeans_cluster(train_data_pca, test_data_pca)
+    kmeans_cluster(train_data_pca, test_data_pca)
     # dbscan_cluster(train_data_pca, test_data_pca)
     # em_cluster(train_data_pca, test_data_pca)
     # clarans_cluster(train_data_pca, test_data_pca)
     # denclue_cluster(train_data_pca, test_data_pca)
-    agglomerative_cluster(train_data_pca, test_data_pca)
+    # agglomerative_cluster(train_data_pca, test_data_pca)
