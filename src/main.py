@@ -8,9 +8,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import skew, kurtosis
+from scipy.optimize import linear_sum_assignment
 from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans, DBSCAN
-from sklearn.metrics import silhouette_score, accuracy_score, adjusted_rand_score
+from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
+from sklearn.metrics import silhouette_score, accuracy_score, adjusted_rand_score, confusion_matrix
 from scipy.stats import mode
 from sklearn.neighbors import NearestNeighbors
 from clarans import CLARANS
@@ -397,6 +398,58 @@ def denclue_cluster(train_data_pca, test_data_pca, bandwidth=10):
     ari = adjusted_rand_score(true_labels, cluster_labels)
     print(f"Adjusted Rand Index (ARI): {ari:.3f}")
 
+def agglomerative_cluster(train_data_pca, test_data_pca):
+ 
+    # 聚类部分（使用K-means）
+    agg = AgglomerativeClustering(n_clusters=6, linkage='ward')
+    train_clusters = agg.fit_predict(train_data_pca)
+
+    # 可视化聚类结果
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(x=train_data_pca[:, 0], y=train_data_pca[:, 1], hue=train_clusters, size=3, palette="Set1", s=60)
+    plt.title("Agglomerative Clustering of UCI HAR Dataset (Train)")
+    plt.xlabel("Principal Component 1")
+    plt.ylabel("Principal Component 2")
+    plt.legend(title='Cluster')
+    plt.savefig("result/agg_fit_train.pdf")
+
+    # 计算聚类效果评估指标（如轮廓系数）
+    silhouette_avg = silhouette_score(train_data_pca, train_clusters)
+    print(f"Silhouette Score: {silhouette_avg:.3f}")
+
+    # # 聚类紧凑度和分离度
+    # kmeans = AgglomerativeClustering(n_clusters=6, linkage='ward')
+    # kmeans.fit(train_data_pca)
+    # labels = kmeans.labels_
+    # centers = kmeans.cluster_centers_
+
+    # compact = compactness(train_data_pca, labels, centers)
+    # separate = separation(centers)
+
+    # print(f"Compactness: {compact:.3f}")
+    # print(f"Separation: {separate:.3f}")
+
+    test_clusters = agg.fit_predict(test_data_pca)
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(x=test_data_pca[:, 0], y=test_data_pca[:, 1], hue=test_clusters, size=3, palette="Set1", s=60)
+    plt.title("Agglomerative Clustering of UCI HAR Dataset (Test)")
+    plt.xlabel("Principal Component 1")
+    plt.ylabel("Principal Component 2")
+    plt.legend(title='Cluster')
+    plt.savefig("result/agg_fit_test.pdf")
+
+
+    le = LabelEncoder()
+    true_labels = le.fit_transform(test_data['activity'])
+    conf_matrix = confusion_matrix(true_labels, test_clusters)
+    row_ind, col_ind = linear_sum_assignment(-conf_matrix)
+    mapping = dict(zip(col_ind, row_ind))
+    mapped_labels = np.array([mapping[label] for label in test_clusters])
+    accuracy = accuracy_score(true_labels, mapped_labels)
+    print(f"Classification Accuracy: {accuracy:.3f}")
+    ari = adjusted_rand_score(true_labels, test_clusters)
+    print(f"Adjusted Rand Index (ARI): {ari:.3f}")
+
 if __name__ == "__main__":
     train_data, test_data, features = read_data()
     train_data_pca, test_data_pca = preprocess(train_data, test_data, features)
@@ -405,4 +458,5 @@ if __name__ == "__main__":
     # dbscan_cluster(train_data_pca, test_data_pca)
     # em_cluster(train_data_pca, test_data_pca)
     # clarans_cluster(train_data_pca, test_data_pca)
-    denclue_cluster(train_data_pca, test_data_pca)
+    # denclue_cluster(train_data_pca, test_data_pca)
+    agglomerative_cluster(train_data_pca, test_data_pca)
