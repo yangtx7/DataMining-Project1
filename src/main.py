@@ -17,13 +17,16 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline import Pipeline
 from sympy import true
 from clarans import CLARANS
+from kmeans import ManualKMeans
 
 np.random.seed(42)
 dataset_path = './data'
 
 def cluster_accuracy(true_labels, labels):
     conf_matrix = confusion_matrix(true_labels, labels)
+    print(conf_matrix)
     row_ind, col_ind = linear_sum_assignment(-conf_matrix)
+    print(row_ind, col_ind)
     mapping = dict(zip(col_ind, row_ind))
     mapped_labels = np.array([mapping[label] for label in labels])
     accuracy = accuracy_score(true_labels, mapped_labels)
@@ -93,12 +96,15 @@ def read_data():
     Y_train = pd.read_csv(os.path.join(dataset_path, 'train', 'y_train.txt'), header=None, names=['activity'])
     subject_train = pd.read_csv(os.path.join(dataset_path, 'train', 'subject_train.txt'), header=None, names=['subject'])
     train_data = pd.concat([subject_train, Y_train, X_train], axis=1)
+    print(train_data.shape)
 
     # 读取测试数据
     X_test = pd.read_csv(os.path.join(dataset_path, 'test', 'X_test.txt'), delim_whitespace=True, header=None, names=features)
     Y_test = pd.read_csv(os.path.join(dataset_path, 'test', 'y_test.txt'), header=None, names=['activity'])
     subject_test = pd.read_csv(os.path.join(dataset_path, 'test', 'subject_test.txt'), header=None, names=['subject'])
     test_data = pd.concat([subject_test, Y_test, X_test], axis=1)
+    print(test_data.shape)
+
 
     # 合并训练和测试数据
     all_data = pd.concat([train_data, test_data], axis=0)
@@ -249,8 +255,11 @@ def em_cluster(train_data_pca, test_data_pca, n_components=6):
 def kmeans_cluster(train_data_pca, test_data_pca):
  
     # 聚类部分（使用K-means）
-    kmeans = KMeans(n_clusters=6, random_state=42, n_init=10, init='random')
-    train_clusters = kmeans.fit_predict(train_data_pca)
+    kmeans = ManualKMeans(n_clusters=6, max_iter=300)
+    # kmeans = KMeans(n_clusters=6, random_state=42, n_init=10, init='random')
+    kmeans.fit(train_data_pca)
+    train_clusters = kmeans.predict(train_data_pca)
+    # train_clusters = kmeans.fit_predict(train_data_pca)
 
     # 可视化聚类结果
     plt.figure(figsize=(10, 6))
@@ -522,10 +531,10 @@ if __name__ == "__main__":
     train_data, test_data, features = read_data()
     train_data_pca, test_data_pca = preprocess(train_data, test_data, features)
     # plot_k_distance(train_data_pca, k=5)
-    # kmeans_cluster(train_data_pca, test_data_pca)
+    kmeans_cluster(train_data_pca, test_data_pca)
     # dbscan_cluster(train_data_pca, test_data_pca)
     # em_cluster(train_data_pca, test_data_pca)
     # clarans_cluster(train_data_pca, test_data_pca)
     # denclue_cluster(train_data_pca, test_data_pca)
-    agglomerative_cluster(train_data_pca, test_data_pca)
+    # agglomerative_cluster(train_data_pca, test_data_pca)
     # divisive_cluster(train_data_pca, test_data_pca)
