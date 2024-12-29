@@ -87,7 +87,7 @@ def read_data():
     features = pd.read_csv(os.path.join(dataset_path, 'features.txt'), sep='\s+', header=None, names=['index', 'feature_name'])
     features = features['feature_name'].values
     for i in range(len(features)):
-        features[i] += str(i)+"-"+features[i]
+        features[i] = str(i)+"-"+features[i]
 
     # 读取活动标签
     activity_labels = pd.read_csv(os.path.join(dataset_path, 'activity_labels.txt'), sep='\s+', header=None, names=['index', 'activity'])
