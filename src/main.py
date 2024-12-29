@@ -269,7 +269,7 @@ def kmeans_cluster(train_data_pca, test_data_pca):
     plt.xlabel("Principal Component 1")
     plt.ylabel("Principal Component 2")
     plt.legend(title='Cluster')
-    plt.savefig("result/kmeans_fit_train.pdf")
+    plt.savefig("result/ModelResults/kmeans_fit_train.pdf")
 
     # 计算聚类效果评估指标（如轮廓系数）
     silhouette_avg = silhouette_score(train_data_pca, train_clusters)
@@ -292,7 +292,7 @@ def kmeans_cluster(train_data_pca, test_data_pca):
     plt.xlabel("Principal Component 1")
     plt.ylabel("Principal Component 2")
     plt.legend(title='Cluster')
-    plt.savefig("result/kmeans_fit_test.pdf")
+    plt.savefig("result/ModelResults/kmeans_fit_test.pdf")
 
 
     le = LabelEncoder()
