@@ -19,7 +19,7 @@ from sympy import true
 from clarans import CLARANS
 
 np.random.seed(42)
-dataset_path = './data'
+
 
 def cluster_accuracy(true_labels, labels):
     conf_matrix = confusion_matrix(true_labels, labels)
@@ -79,6 +79,7 @@ def separation(centers):
     return sep / (n_clusters * (n_clusters - 1) / 2)
 
 def read_data():
+    dataset_path = './data'
     # 读取特征
     features = pd.read_csv(os.path.join(dataset_path, 'features.txt'), sep='\s+', header=None, names=['index', 'feature_name'])
     features = features['feature_name'].values
@@ -108,14 +109,14 @@ def read_data():
 
     return train_data, test_data, features
 
-def preprocess(train_data, test_data, features):
+def preprocess(train_data, test_data, variance_threshold, n_components):
     pp = Pipeline([
         ('scaler', StandardScaler()),
-        ('selector', VarianceThreshold(threshold=0)),
-        ('pca', PCA(n_components=.8))
+        ('selector', VarianceThreshold(threshold=variance_threshold)),
+        ('pca', PCA(n_components=n_components))
     ])
-    X_train = pp.fit_transform(train_data[features])
-    X_test = pp.fit_transform(test_data[features])
+    X_train = pp.fit_transform(train_data)
+    X_test = pp.fit_transform(test_data)
     return X_train, X_test
 
 def dbscan_cluster(train_data_pca, test_data_pca, eps=12.7, min_samples=10):
@@ -518,14 +519,19 @@ def divisive_cluster(train_data_pca, test_data_pca):
     ari = adjusted_rand_score(true_labels_test, pred_labels_test)
     print(f"Adjusted Rand Index (ARI): {ari:.3f}")
 
+
+
+
+
+
 if __name__ == "__main__":
     train_data, test_data, features = read_data()
-    train_data_pca, test_data_pca = preprocess(train_data, test_data, features)
+    train_data_pca, test_data_pca = preprocess(train_data[features], test_data[features], variance_threshold, n_components)
     # plot_k_distance(train_data_pca, k=5)
     # kmeans_cluster(train_data_pca, test_data_pca)
     # dbscan_cluster(train_data_pca, test_data_pca)
     # em_cluster(train_data_pca, test_data_pca)
     # clarans_cluster(train_data_pca, test_data_pca)
     # denclue_cluster(train_data_pca, test_data_pca)
-    agglomerative_cluster(train_data_pca, test_data_pca)
+    # agglomerative_cluster(train_data_pca, test_data_pca)
     # divisive_cluster(train_data_pca, test_data_pca)
