@@ -125,7 +125,7 @@ def preprocess(train_data, test_data, variance_threshold, n_components):
     X_test = pp.fit_transform(test_data)
     return X_train, X_test
 
-def dbscan_cluster(train_data_pca, test_data_pca, eps=12.7, min_samples=10):
+def dbscan_cluster(train_data_pca, test_data_pca, eps=5, min_samples=5):
     # 聚类部分（使用DBSCAN）
     dbscan = DBSCAN(eps=eps, min_samples=min_samples)
     train_clusters = dbscan.fit_predict(train_data_pca)
@@ -269,7 +269,7 @@ def kmeans_cluster(train_data_pca, test_data_pca):
     plt.xlabel("Principal Component 1")
     plt.ylabel("Principal Component 2")
     plt.legend(title='Cluster')
-    plt.savefig("result/kmeans_fit_train.pdf")
+    plt.savefig("result/ModelResults/kmeans_fit_train.pdf")
 
     # 计算聚类效果评估指标（如轮廓系数）
     silhouette_avg = silhouette_score(train_data_pca, train_clusters)
@@ -292,7 +292,7 @@ def kmeans_cluster(train_data_pca, test_data_pca):
     plt.xlabel("Principal Component 1")
     plt.ylabel("Principal Component 2")
     plt.legend(title='Cluster')
-    plt.savefig("result/kmeans_fit_test.pdf")
+    plt.savefig("result/ModelResults/kmeans_fit_test.pdf")
 
 
     le = LabelEncoder()
@@ -535,10 +535,10 @@ def divisive_cluster(train_data_pca, test_data_pca):
 
 if __name__ == "__main__":
     train_data, test_data, features = read_data()
-    train_data_pca, test_data_pca = preprocess(train_data[features], test_data[features], variance_threshold, n_components)
+    train_data_pca, test_data_pca = preprocess(train_data[features], test_data[features], 0.1, 0.8)
     # plot_k_distance(train_data_pca, k=5)
-    kmeans_cluster(train_data_pca, test_data_pca)
-    # dbscan_cluster(train_data_pca, test_data_pca)
+    # kmeans_cluster(train_data_pca, test_data_pca)
+    dbscan_cluster(train_data_pca, test_data_pca)
     # em_cluster(train_data_pca, test_data_pca)
     # clarans_cluster(train_data_pca, test_data_pca)
     # denclue_cluster(train_data_pca, test_data_pca)
